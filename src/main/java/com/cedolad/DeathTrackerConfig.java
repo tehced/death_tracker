@@ -9,4 +9,21 @@ import net.runelite.client.config.ConfigSection;
 public interface DeathTrackerConfig extends Config
 {
 	String GROUP = "deathtracker";
+
+	@ConfigItem(
+			position = 1,
+			keyName = "trackerOption",
+			name = "Tracker",
+			description = "Toggle for tracking"
+	)
+	default boolean trackerOption() { return true; }
+
+	@ConfigItem(
+			position = 2,
+			keyName = "infoBoxesOption",
+			name = "Info Boxes",
+			description = "Toggles info boxes overlay"
+	)
+	default boolean infoBoxesOption() { return false; }
+
 }

@@ -2,7 +2,6 @@ package com.cedolad;
 
 import net.runelite.api.Client;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.swing.*;
@@ -21,10 +20,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 public class DeathTrackerPanel extends PluginPanel {
 
-    private static final ImageIcon ARROW_RIGHT_ICON;
-
     @Inject
-    @Nullable
     private Client client;
 
     @Inject
@@ -40,31 +36,15 @@ public class DeathTrackerPanel extends PluginPanel {
     @Named("runelite.version")
     private String runeliteVersion;
 
-    static
-    {
-        ARROW_RIGHT_ICON = new ImageIcon(ImageUtil.loadImageResource(DeathTrackerPanel.class, "/util/arrow_right.png"));
-    }
 
     void init()
     {
-
-        setLayout(new BorderLayout());
-        setBackground(ColorScheme.DARK_GRAY_COLOR);
-        setBorder(new EmptyBorder(10, 10, 10, 10));
-
-        JPanel versionPanel = new JPanel();
-        versionPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
-        versionPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-        versionPanel.setLayout(new GridLayout(0, 1));
+//        JPanel versionPanel = new JPanel();
+//        versionPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+//        versionPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+//        versionPanel.setLayout(new GridLayout(0, 1));
 
         final Font smallFont = FontManager.getRunescapeSmallFont();
-
-        JLabel version = new JLabel(htmlLabel("Runelite Version: ", runeliteVersion));
-        version.setFont(smallFont);
-
-        versionPanel.add(version);
-
-        add(versionPanel, BorderLayout.NORTH);
 
         eventBus.register(this);
     }
