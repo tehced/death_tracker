@@ -10,7 +10,11 @@ import lombok.extern.slf4j.Slf4j;
 
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
+import net.runelite.api.Hitsplat;
+import net.runelite.api.annotations.HitsplatType;
 import net.runelite.api.events.ActorDeath;
+import net.runelite.api.events.HitsplatApplied;
+import net.runelite.api.events.InteractingChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -65,6 +69,7 @@ public class DeathTrackerPlugin extends Plugin
 	protected void startUp() throws Exception
 	{
 		log.info("Death Tracker started!");
+
 		if (config.infoBoxesOption())
 		{
 			overlayManager.add(overlay);
@@ -92,25 +97,65 @@ public class DeathTrackerPlugin extends Plugin
 		clientToolbar.removeNavigation(navButton);
 	}
 
+    @Subscribe
+    public void onInteractingChanged(InteractingChanged interaction)
+    {
+        Actor source = interaction.getSource();
+        Actor target = interaction.getTarget();
+        if (source != null && target != null)
+        {
+            log.info("{} {}", source.getName(), target.getName());
+        }
+    }
+
 	@Subscribe
 	public void onActorDeath(ActorDeath death)
 	{
-		if (config.trackerOption()) {
-			Actor actor = death.getActor();
-			Actor npc = actor.getInteracting();
+		Actor actor = death.getActor();
+		String actorName = getActorName(actor);
 
-			String actorName = getActorName(actor);
-
+		Actor npc = actor.getInteracting();
+		if (npc != null)
+		{
 			String npcName = getActorName(npc);
 			setNPCName(npcName);
-
-			log.info(npcName + " killed " + actorName);
-
-			deathCount++;
+			log.info("{} killed {}", npcName, actorName);
 		}
+		else
+		{
+			// probably means you died to poison damage
+			log.info("Died to poison probably");
+		}
+
+		deathCount++;
+		panel.updateOverall();
 	}
 
-	String getActorName(Actor actor)
+    @Subscribe
+    public void onHitsplatApplied(HitsplatApplied appliedHitsplat)
+    {
+        Hitsplat hitsplat = appliedHitsplat.getHitsplat();
+		int hitsplatType = hitsplat.getHitsplatType();
+		String hitsplatTypeString;
+		int amount = hitsplat.getAmount();
+
+        Actor actor = appliedHitsplat.getActor();
+
+		switch (hitsplatType){
+			case 16:
+				hitsplatTypeString = "normal";
+				break;
+			case 65:
+				hitsplatTypeString = "poison";
+                break;
+            default:
+                throw new IllegalStateException("Unexpected value: " + hitsplatType);
+        }
+
+		log.info("{} taking {} damage: {}", actor.getName(), hitsplatTypeString, amount);
+    }
+
+	private String getActorName(Actor actor)
 	{
         return actor.getName();
 	}

@@ -10,53 +10,97 @@ import javax.swing.border.EmptyBorder;
 
 import net.runelite.client.account.SessionManager;
 import net.runelite.client.eventbus.EventBus;
+import net.runelite.client.plugins.Plugin;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.ui.components.PluginErrorPanel;
+import net.runelite.client.util.ColorUtil;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.client.util.QuantityFormatter;
 
 import java.awt.*;
 import java.util.concurrent.ScheduledExecutorService;
 
 public class DeathTrackerPanel extends PluginPanel
 {
-    private PluginErrorPanel errorPanel = new PluginErrorPanel();
+    private static final String HTML_LABEL_TEMPLATE =
+            "<html><body style='color:%s'>%s<span style='color:white'>%s</span></body></html>";
+
+    private final PluginErrorPanel errorPanel = new PluginErrorPanel();
+
+    public final JPanel logsContainer = new JPanel();
+    public final JPanel overallPanel = new JPanel();
+    private final JLabel overallDeathsLabel = new JLabel();
+    private final JLabel overallCostLabel = new JLabel();
+    private final JLabel overallIcon = new JLabel();
+    private int overallDeaths;
+    private int overallCost;
 
     private final DeathTrackerPlugin plugin;
-    private final DeathTrackerConfig config;
 
     DeathTrackerPanel(DeathTrackerPlugin plugin, DeathTrackerConfig config)
     {
         this.plugin = plugin;
-        this.config = config;
-
         setBorder(new EmptyBorder(6, 6, 6, 6));
-        setBackground(ColorScheme.DARK_GRAY_COLOR);
         setLayout(new BorderLayout());
+        setBackground(ColorScheme.DARK_GRAY_COLOR);
 
-        JPanel layoutPanel = new JPanel();
+        final JPanel layoutPanel = new JPanel();
         layoutPanel.setLayout(new BoxLayout(layoutPanel, BoxLayout.Y_AXIS));
         add(layoutPanel, BorderLayout.NORTH);
 
-        errorPanel.setContent("Death tracker", "You have not died... yet.");
+        overallPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        overallPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        overallPanel.setLayout(new BorderLayout());
+        overallPanel.setVisible(true);
+
+        final JPanel overallInfo = new JPanel();
+        overallInfo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        overallInfo.setLayout(new GridLayout(2, 1));
+        overallInfo.setBorder(new EmptyBorder(0, 10, 0, 0));
+        overallDeathsLabel.setFont(FontManager.getRunescapeSmallFont());
+        overallCostLabel.setFont(FontManager.getRunescapeSmallFont());
+        overallInfo.add(overallDeathsLabel);
+        overallInfo.add(overallCostLabel);
+        overallPanel.add(overallIcon, BorderLayout.WEST);
+        overallPanel.add(overallInfo, BorderLayout.CENTER);
+
+        logsContainer.setLayout(new BoxLayout(logsContainer, BoxLayout.Y_AXIS));
+        layoutPanel.add(overallPanel);
+        layoutPanel.add(logsContainer);
+
+        overallPanel.setVisible(false);
+        logsContainer.setVisible(true);
+
+        errorPanel.setContent("Death Tracker", "You have not died... yet.");
         add(errorPanel);
+
     }
 
-    private JPanel buildActionsPanel()
+    public void updateOverall()
     {
-        JPanel actionsContainer = new JPanel();
-        actionsContainer.setLayout(new BorderLayout());
-        actionsContainer.setBackground(ColorScheme.DARK_GRAY_COLOR);
-        actionsContainer.setPreferredSize(new Dimension(0, 30));
-        actionsContainer.setBorder(new EmptyBorder(5, 5, 5, 10));
-        actionsContainer.setVisible(false);
+        overallDeaths = plugin.getDeathCount();
 
-        return actionsContainer;
+        overallDeathsLabel.setText(htmlLabel("Total Deaths: ", overallDeaths));
+        overallCostLabel.setText(htmlLabel("Total Cost: ", overallCost));
+
+        if (overallDeaths <= 0)
+        {
+            add(errorPanel);
+            overallPanel.setVisible(false);
+        }
+        else
+        {
+            remove(errorPanel);
+            overallPanel.setVisible(true);
+        }
+
     }
 
-    private static String htmlLabel(String key, String value)
+    private static String htmlLabel(String key, long value)
     {
-        return "<html><body style = 'color:#a5a5a5'>" + key + "<span style = 'color:white'>" + value + "</span></body></html>";
+        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.LIGHT_GRAY_COLOR), key, value);
     }
 }
+
