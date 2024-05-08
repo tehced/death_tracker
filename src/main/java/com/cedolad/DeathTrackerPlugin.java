@@ -11,12 +11,12 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.Hitsplat;
-import net.runelite.api.annotations.HitsplatType;
 import net.runelite.api.events.ActorDeath;
 import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.InteractingChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.RuneScapeProfileChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
@@ -25,6 +25,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
 
 import java.awt.image.BufferedImage;
+import java.util.UUID;
 
 @PluginDescriptor(
 	name = "Death Tracker",
@@ -39,6 +40,9 @@ public class DeathTrackerPlugin extends Plugin
 
 	@Inject
 	private DeathTrackerConfig config;
+
+	@Inject
+	private ConfigManager configManager;
 
 	@Inject
 	private OverlayManager overlayManager;
@@ -59,16 +63,47 @@ public class DeathTrackerPlugin extends Plugin
 	@Getter
 	private int deathCount;
 
+	@Setter
+	@Getter
+	private UUID uuid;
+
+	private String profileKey;
+
 	@Provides
 	DeathTrackerConfig provideConfig(ConfigManager configManager)
 	{
 		return configManager.getConfig(DeathTrackerConfig.class);
 	}
 
+	@Subscribe
+	public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
+	{
+		final String profileKey = configManager.getRSProfileKey();
+		if (profileKey == null)
+		{
+			return;
+		}
+
+		if (profileKey.equals(this.profileKey))
+		{
+			return;
+		}
+
+		switchProfile(profileKey);
+	}
+
+	private void switchProfile(String profileKey)
+	{
+		this.profileKey = profileKey;
+
+		log.debug("Switched to profile {}", profileKey);
+	}
+
 	@Override
 	protected void startUp() throws Exception
 	{
 		log.info("Death Tracker started!");
+		log.info(profileKey);
 
 		if (config.infoBoxesOption())
 		{
@@ -97,7 +132,7 @@ public class DeathTrackerPlugin extends Plugin
 		clientToolbar.removeNavigation(navButton);
 	}
 
-    @Subscribe
+//    @Subscribe
     public void onInteractingChanged(InteractingChanged interaction)
     {
         Actor source = interaction.getSource();
@@ -142,6 +177,9 @@ public class DeathTrackerPlugin extends Plugin
         Actor actor = appliedHitsplat.getActor();
 
 		switch (hitsplatType){
+			case 12:
+				hitsplatTypeString = "no";
+				break;
 			case 16:
 				hitsplatTypeString = "normal";
 				break;
