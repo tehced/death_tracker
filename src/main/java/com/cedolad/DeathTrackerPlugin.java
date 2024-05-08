@@ -3,8 +3,12 @@ package com.cedolad;
 import com.google.inject.Provides;
 
 import javax.inject.Inject;
+
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
+import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.events.ActorDeath;
 import net.runelite.client.config.ConfigManager;
@@ -26,8 +30,6 @@ import java.awt.image.BufferedImage;
 @Slf4j
 public class DeathTrackerPlugin extends Plugin
 {
-	private int deathCount;
-
 	@Inject
 	private Client client;
 
@@ -46,6 +48,13 @@ public class DeathTrackerPlugin extends Plugin
 	private DeathTrackerPanel panel;
 	private NavigationButton navButton;
 
+	@Setter
+	@Getter
+	private String NPCName;
+
+	@Getter
+	private int deathCount;
+
 	@Provides
 	DeathTrackerConfig provideConfig(ConfigManager configManager)
 	{
@@ -56,18 +65,19 @@ public class DeathTrackerPlugin extends Plugin
 	protected void startUp() throws Exception
 	{
 		log.info("Death Tracker started!");
+		if (config.infoBoxesOption())
+		{
+			overlayManager.add(overlay);
+		}
 
-		overlayManager.add(overlay);
-
-		panel = injector.getInstance(DeathTrackerPanel.class);
-		panel.init();
+		panel = new DeathTrackerPanel(this, config);
 
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "grave_icon.png");
 
 		navButton = NavigationButton.builder()
 				.tooltip("Death Tracker")
 				.icon(icon)
-				.priority(1)
+				.priority(2)
 				.panel(panel)
 				.build();
 
@@ -79,23 +89,30 @@ public class DeathTrackerPlugin extends Plugin
 	{
 		log.info("Death Tracker stopped!");
 		overlayManager.remove(overlay);
-		panel.deinit();
 		clientToolbar.removeNavigation(navButton);
-		panel = null;
-		navButton = null;
 	}
 
 	@Subscribe
-	public void onActorDeath(ActorDeath actor)
+	public void onActorDeath(ActorDeath death)
 	{
 		if (config.trackerOption()) {
-			String name = actor.getActor().getName();
+			Actor actor = death.getActor();
+			Actor npc = actor.getInteracting();
+
+			String actorName = getActorName(actor);
+
+			String npcName = getActorName(npc);
+			setNPCName(npcName);
+
+			log.info(npcName + " killed " + actorName);
+
 			deathCount++;
 		}
 	}
 
-	int getDeathCount()
+	String getActorName(Actor actor)
 	{
-		return deathCount;
+        return actor.getName();
 	}
+
 }

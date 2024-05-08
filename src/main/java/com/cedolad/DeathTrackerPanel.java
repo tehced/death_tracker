@@ -13,45 +13,46 @@ import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
+import net.runelite.client.ui.components.PluginErrorPanel;
 import net.runelite.client.util.ImageUtil;
 
 import java.awt.*;
 import java.util.concurrent.ScheduledExecutorService;
 
-public class DeathTrackerPanel extends PluginPanel {
+public class DeathTrackerPanel extends PluginPanel
+{
+    private PluginErrorPanel errorPanel = new PluginErrorPanel();
 
-    @Inject
-    private Client client;
+    private final DeathTrackerPlugin plugin;
+    private final DeathTrackerConfig config;
 
-    @Inject
-    private EventBus eventBus;
-
-    @Inject
-    private SessionManager sessionManager;
-
-    @Inject
-    private ScheduledExecutorService executor;
-
-    @Inject
-    @Named("runelite.version")
-    private String runeliteVersion;
-
-
-    void init()
+    DeathTrackerPanel(DeathTrackerPlugin plugin, DeathTrackerConfig config)
     {
-//        JPanel versionPanel = new JPanel();
-//        versionPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
-//        versionPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-//        versionPanel.setLayout(new GridLayout(0, 1));
+        this.plugin = plugin;
+        this.config = config;
 
-        final Font smallFont = FontManager.getRunescapeSmallFont();
+        setBorder(new EmptyBorder(6, 6, 6, 6));
+        setBackground(ColorScheme.DARK_GRAY_COLOR);
+        setLayout(new BorderLayout());
 
-        eventBus.register(this);
+        JPanel layoutPanel = new JPanel();
+        layoutPanel.setLayout(new BoxLayout(layoutPanel, BoxLayout.Y_AXIS));
+        add(layoutPanel, BorderLayout.NORTH);
+
+        errorPanel.setContent("Death tracker", "You have not died... yet.");
+        add(errorPanel);
     }
 
-    void deinit()
+    private JPanel buildActionsPanel()
     {
-        eventBus.unregister(this);
+        JPanel actionsContainer = new JPanel();
+        actionsContainer.setLayout(new BorderLayout());
+        actionsContainer.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        actionsContainer.setPreferredSize(new Dimension(0, 30));
+        actionsContainer.setBorder(new EmptyBorder(5, 5, 5, 10));
+        actionsContainer.setVisible(false);
+
+        return actionsContainer;
     }
 
     private static String htmlLabel(String key, String value)
