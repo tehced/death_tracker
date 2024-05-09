@@ -1,22 +1,17 @@
 package com.cedolad;
 
 import com.google.inject.Provides;
-
-import javax.inject.Inject;
-
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-
-import net.runelite.api.Actor;
-import net.runelite.api.Client;
-import net.runelite.api.Hitsplat;
+import net.runelite.api.*;
 import net.runelite.api.events.ActorDeath;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.InteractingChanged;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
-import net.runelite.client.events.RuneScapeProfileChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
@@ -24,178 +19,203 @@ import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
 
+import javax.inject.Inject;
 import java.awt.image.BufferedImage;
-import java.util.UUID;
+import java.util.Objects;
 
 @PluginDescriptor(
-	name = "Death Tracker",
-	description = "Tracks deaths, and logs gravestone costs",
-	tags = {"death, tracker"}
+        name = "Death Tracker",
+        description = "Tracks deaths, and logs gravestone costs",
+        tags = {"death, tracker"}
 )
 @Slf4j
-public class DeathTrackerPlugin extends Plugin
-{
-	@Inject
-	private Client client;
+public class DeathTrackerPlugin extends Plugin {
+    @Inject
+    private Client client;
 
-	@Inject
-	private DeathTrackerConfig config;
+    @Inject
+    private ClientThread clientThread;
 
-	@Inject
-	private ConfigManager configManager;
+    @Inject
+    private DeathTrackerConfig config;
 
-	@Inject
-	private OverlayManager overlayManager;
+    @Inject
+    private ConfigManager configManager;
 
-	@Inject
-	private DeathTrackerOverlay overlay;
+    @Inject
+    private OverlayManager overlayManager;
 
-	@Inject
-	private ClientToolbar clientToolbar;
+    @Inject
+    private DeathTrackerOverlay overlay;
 
-	private DeathTrackerPanel panel;
-	private NavigationButton navButton;
+    @Inject
+    private ClientToolbar clientToolbar;
 
-	@Setter
-	@Getter
-	private String NPCName;
+    private DeathTrackerPanel panel;
+    private NavigationButton navButton;
 
-	@Getter
-	private int deathCount;
+    @Setter
+    @Getter
+    private String NPCName;
 
-	@Setter
-	@Getter
-	private UUID uuid;
+    @Getter
+    private int deathCount;
 
-	private String profileKey;
+    private boolean previouslyLoggedIn;
 
-	@Provides
-	DeathTrackerConfig provideConfig(ConfigManager configManager)
-	{
-		return configManager.getConfig(DeathTrackerConfig.class);
-	}
+    @Setter
+    @Getter
+    private String currentlyLoggedInAccount;
 
-	@Subscribe
-	public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
-	{
-		final String profileKey = configManager.getRSProfileKey();
-		if (profileKey == null)
-		{
-			return;
-		}
+    @Setter
+    @Getter
+    private int previousHitsplitTypeID;
 
-		if (profileKey.equals(this.profileKey))
-		{
-			return;
-		}
 
-		switchProfile(profileKey);
-	}
+    @Provides
+    DeathTrackerConfig provideConfig(ConfigManager configManager) {
+        return configManager.getConfig(DeathTrackerConfig.class);
+    }
 
-	private void switchProfile(String profileKey)
-	{
-		this.profileKey = profileKey;
+    @Override
+    protected void startUp() throws Exception {
+        log.info("Death Tracker started!");
 
-		log.debug("Switched to profile {}", profileKey);
-	}
+        if (config.infoBoxesOption()) {
+            overlayManager.add(overlay);
+        }
 
-	@Override
-	protected void startUp() throws Exception
-	{
-		log.info("Death Tracker started!");
-		log.info(profileKey);
+        panel = new DeathTrackerPanel(this, config);
 
-		if (config.infoBoxesOption())
-		{
-			overlayManager.add(overlay);
-		}
+        final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "grave_icon.png");
 
-		panel = new DeathTrackerPanel(this, config);
+        navButton = NavigationButton.builder()
+                .tooltip("Death Tracker")
+                .icon(icon)
+                .priority(2)
+                .panel(panel)
+                .build();
 
-		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "grave_icon.png");
+        clientToolbar.addNavigation(navButton);
+    }
 
-		navButton = NavigationButton.builder()
-				.tooltip("Death Tracker")
-				.icon(icon)
-				.priority(2)
-				.panel(panel)
-				.build();
+    @Override
+    protected void shutDown() throws Exception {
+        log.info("Death Tracker stopped!");
+        overlayManager.remove(overlay);
+        clientToolbar.removeNavigation(navButton);
+    }
 
-		clientToolbar.addNavigation(navButton);
-	}
-
-	@Override
-	protected void shutDown() throws Exception
-	{
-		log.info("Death Tracker stopped!");
-		overlayManager.remove(overlay);
-		clientToolbar.removeNavigation(navButton);
-	}
-
-//    @Subscribe
-    public void onInteractingChanged(InteractingChanged interaction)
-    {
-        Actor source = interaction.getSource();
-        Actor target = interaction.getTarget();
-        if (source != null && target != null)
-        {
-            log.info("{} {}", source.getName(), target.getName());
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event) {
+        if (event.getGameState() == GameState.LOGGED_IN) {
+            onLoggedInGameState();
+        } else if (event.getGameState() == GameState.LOGIN_SCREEN && previouslyLoggedIn) {
+            if (currentlyLoggedInAccount != null && client.getGameState() != GameState.LOGGED_IN) {
+                handleLogout();
+            }
         }
     }
 
-	@Subscribe
-	public void onActorDeath(ActorDeath death)
-	{
-		Actor actor = death.getActor();
-		String actorName = getActorName(actor);
-
-		Actor npc = actor.getInteracting();
-		if (npc != null)
-		{
-			String npcName = getActorName(npc);
-			setNPCName(npcName);
-			log.info("{} killed {}", npcName, actorName);
-		}
-		else
-		{
-			// probably means you died to poison damage
-			log.info("Died to poison probably");
-		}
-
-		deathCount++;
-		panel.updateOverall();
-	}
+    @Subscribe
+    public void onInteractingChanged(InteractingChanged interaction) {
+        Actor source = interaction.getSource();
+        Actor target = interaction.getTarget();
+        if (Objects.equals(source.getName(), currentlyLoggedInAccount))
+            if (target != null) {
+                log.info("{} interacting with {}", source.getName(), target.getName());
+            }
+    }
 
     @Subscribe
-    public void onHitsplatApplied(HitsplatApplied appliedHitsplat)
-    {
+    public void onActorDeath(ActorDeath death) {
+        log.info(String.valueOf(previousHitsplitTypeID));
+        log.info(String.valueOf(HitsplatID.POISON));
+        Actor actor = death.getActor();
+        String actorName = getActorName(actor);
+
+        Actor npc = actor.getInteracting();
+        if (Objects.equals(actorName, currentlyLoggedInAccount)) {
+            log.debug(currentlyLoggedInAccount);
+            if (npc != null) {
+                String npcName = getActorName(npc);
+                setNPCName(npcName);
+                log.info("{} killed {}", npcName, actorName);
+            } else if (previousHitsplitTypeID == HitsplatID.POISON){
+                // probably means you died to poison damage
+                log.info("Died to poison probably");
+            }
+
+            deathCount++;
+            panel.updateOverall();
+        }
+    }
+
+    @Subscribe
+    public void onHitsplatApplied(HitsplatApplied appliedHitsplat) {
         Hitsplat hitsplat = appliedHitsplat.getHitsplat();
-		int hitsplatType = hitsplat.getHitsplatType();
-		String hitsplatTypeString;
-		int amount = hitsplat.getAmount();
+        int hitsplatType = hitsplat.getHitsplatType();
+        int amount = hitsplat.getAmount();
 
         Actor actor = appliedHitsplat.getActor();
 
-		switch (hitsplatType){
-			case 12:
-				hitsplatTypeString = "no";
-				break;
-			case 16:
-				hitsplatTypeString = "normal";
-				break;
-			case 65:
-				hitsplatTypeString = "poison";
-                break;
-            default:
-                throw new IllegalStateException("Unexpected value: " + hitsplatType);
-        }
+        if (hitsplat.isMine()) {
+            if (Objects.equals(actor.getName(), currentlyLoggedInAccount)) {
+                log.info("{} taking {} damage", actor.getName(), amount);
+                setPreviousHitsplitTypeID(hitsplatType);
+            }
 
-		log.info("{} taking {} damage: {}", actor.getName(), hitsplatTypeString, amount);
+        }
     }
 
-	private String getActorName(Actor actor)
-	{
+    private void onLoggedInGameState() {
+        clientThread.invokeLater(() ->
+        {
+            if (client.getGameState() != GameState.LOGGED_IN) {
+                return true;
+            }
+
+            final Player player = client.getLocalPlayer();
+
+            if (player == null) {
+                return false;
+            }
+
+            final String name = player.getName();
+
+            if (name == null) {
+                return false;
+            }
+
+            if (name.isEmpty()) {
+                return false;
+            }
+
+            previouslyLoggedIn = true;
+
+            if (currentlyLoggedInAccount == null) {
+                handleLogin(name);
+            }
+
+            return true;
+        });
+    }
+
+    public void handleLogin(String displayName) {
+        log.info("{} has logged in.", displayName);
+
+        currentlyLoggedInAccount = displayName;
+
+    }
+
+    public void handleLogout() {
+        log.info("{} has logged out", currentlyLoggedInAccount);
+
+        currentlyLoggedInAccount = null;
+    }
+
+    private String getActorName(Actor actor) {
         return actor.getName();
-	}
+    }
 
 }

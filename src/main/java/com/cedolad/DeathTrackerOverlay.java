@@ -5,17 +5,14 @@ import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.components.TitleComponent;
 
 import javax.inject.Inject;
-
 import java.awt.*;
 
-class DeathTrackerOverlay extends OverlayPanel
-{
+class DeathTrackerOverlay extends OverlayPanel {
     private final DeathTrackerPlugin plugin;
     private final DeathTrackerConfig config;
 
     @Inject
-    private DeathTrackerOverlay(DeathTrackerPlugin plugin, DeathTrackerConfig config)
-    {
+    private DeathTrackerOverlay(DeathTrackerPlugin plugin, DeathTrackerConfig config) {
         super(plugin);
         setPosition(OverlayPosition.ABOVE_CHATBOX_RIGHT);
         this.plugin = plugin;
@@ -23,10 +20,8 @@ class DeathTrackerOverlay extends OverlayPanel
     }
 
     @Override
-    public Dimension render(Graphics2D graphics)
-    {
-        if (config.infoBoxesOption())
-        {
+    public Dimension render(Graphics2D graphics) {
+        if (config.infoBoxesOption()) {
             final String deathCountString = "Deaths " + plugin.getDeathCount();
 
             panelComponent.getChildren().add(TitleComponent.builder()
