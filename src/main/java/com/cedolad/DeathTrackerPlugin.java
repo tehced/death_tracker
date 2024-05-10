@@ -62,6 +62,8 @@ public class DeathTrackerPlugin extends Plugin {
     private int deathCount;
 
     private boolean previouslyLoggedIn;
+    private String playersLastInteractionWithNPC;
+    private String NPCsLastInteractionWithPlayer;
 
     @Setter
     @Getter
@@ -70,7 +72,6 @@ public class DeathTrackerPlugin extends Plugin {
     @Setter
     @Getter
     private int previousHitsplitTypeID;
-
 
     @Provides
     DeathTrackerConfig provideConfig(ConfigManager configManager) {
@@ -121,37 +122,29 @@ public class DeathTrackerPlugin extends Plugin {
     public void onInteractingChanged(InteractingChanged interaction) {
         Actor source = interaction.getSource();
         Actor target = interaction.getTarget();
-        if (Objects.equals(source.getName(), currentlyLoggedInAccount))
-            if (target != null) {
-                log.info("{} interacting with {}", source.getName(), target.getName());
-            }
+        if (target != null && Objects.equals(source.getName(), currentlyLoggedInAccount)) {
+            log.info("{} interacting with {}", source.getName(), target.getName());
+            playersLastInteractionWithNPC = target.getName();
+        }
+        if (target != null && Objects.equals(source.getName(), currentlyLoggedInAccount)) {
+            log.info("{} interacting with {}", target.getName(), source.getName());
+            NPCsLastInteractionWithPlayer = source.getName();
+        }
     }
 
     @Subscribe
     public void onActorDeath(ActorDeath death) {
-        log.info(String.valueOf(previousHitsplitTypeID));
-        log.info(String.valueOf(HitsplatID.POISON));
         Actor actor = death.getActor();
         String actorName = getActorName(actor);
 
-        Actor npc = actor.getInteracting();
         if (Objects.equals(actorName, currentlyLoggedInAccount)) {
-            log.debug(currentlyLoggedInAccount);
-            if (npc != null) {
-                String npcName = getActorName(npc);
-                setNPCName(npcName);
-                log.info("{} killed {}", npcName, actorName);
-            } else if (previousHitsplitTypeID == HitsplatID.POISON){
-                // probably means you died to poison damage
-                log.info("Died to poison probably");
-            }
-
+            log.info("{} killed {}", playersLastInteractionWithNPC, NPCsLastInteractionWithPlayer);
             deathCount++;
             panel.updateOverall();
         }
     }
 
-    @Subscribe
+//    @Subscribe
     public void onHitsplatApplied(HitsplatApplied appliedHitsplat) {
         Hitsplat hitsplat = appliedHitsplat.getHitsplat();
         int hitsplatType = hitsplat.getHitsplatType();
@@ -164,7 +157,6 @@ public class DeathTrackerPlugin extends Plugin {
                 log.info("{} taking {} damage", actor.getName(), amount);
                 setPreviousHitsplitTypeID(hitsplatType);
             }
-
         }
     }
 
@@ -203,14 +195,12 @@ public class DeathTrackerPlugin extends Plugin {
 
     public void handleLogin(String displayName) {
         log.info("{} has logged in.", displayName);
-
         currentlyLoggedInAccount = displayName;
 
     }
 
     public void handleLogout() {
         log.info("{} has logged out", currentlyLoggedInAccount);
-
         currentlyLoggedInAccount = null;
     }
 
