@@ -49,6 +49,13 @@ public class DeathTrackerPanel extends PluginPanel {
         overallPanel.add(overallIcon, BorderLayout.WEST);
         overallPanel.add(overallInfo, BorderLayout.CENTER);
 
+//        final JMenuItem reset = new JMenuItem("Reset All");
+//        reset.addActionListener(e ->
+//        {
+//            this.plugin.clearDeaths();
+//            resetAll();
+//        });
+
         logsContainer.setLayout(new BoxLayout(logsContainer, BoxLayout.Y_AXIS));
         layoutPanel.add(overallPanel);
         layoutPanel.add(logsContainer);
@@ -78,6 +85,9 @@ public class DeathTrackerPanel extends PluginPanel {
             remove(errorPanel);
             overallPanel.setVisible(true);
         }
+    }
+
+    public void addNPC(String name){
 
     }
 }
