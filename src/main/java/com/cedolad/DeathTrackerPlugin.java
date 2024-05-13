@@ -62,6 +62,8 @@ public class DeathTrackerPlugin extends Plugin {
     private int deathCount;
 
     private boolean previouslyLoggedIn;
+    private String playersLastInteractionWithNPC;
+    private String NPCsLastInteractionWithPlayer;
 
     @Setter
     @Getter
@@ -70,7 +72,6 @@ public class DeathTrackerPlugin extends Plugin {
     @Setter
     @Getter
     private int previousHitsplitTypeID;
-
 
     @Provides
     DeathTrackerConfig provideConfig(ConfigManager configManager) {
@@ -121,10 +122,14 @@ public class DeathTrackerPlugin extends Plugin {
     public void onInteractingChanged(InteractingChanged interaction) {
         Actor source = interaction.getSource();
         Actor target = interaction.getTarget();
-        if (Objects.equals(source.getName(), currentlyLoggedInAccount))
-            if (target != null) {
-                log.info("{} interacting with {}", source.getName(), target.getName());
-            }
+        if (target != null && Objects.equals(source.getName(), currentlyLoggedInAccount)) {
+            log.info("{} interacting with {}", source.getName(), target.getName());
+            playersLastInteractionWithNPC = target.getName();
+        }
+        if (target != null) {
+            log.info("{} interacting with {}", target.getName(), source.getName());
+            NPCsLastInteractionWithPlayer = source.getName();
+        }
     }
 
     @Subscribe
@@ -145,7 +150,7 @@ public class DeathTrackerPlugin extends Plugin {
                 // probably means you died to poison damage
                 log.info("Died to poison probably");
             }
-
+            log.info("{} last targeted by player, {} last targeted player", playersLastInteractionWithNPC, NPCsLastInteractionWithPlayer);
             deathCount++;
             panel.updateOverall();
         }
@@ -203,14 +208,12 @@ public class DeathTrackerPlugin extends Plugin {
 
     public void handleLogin(String displayName) {
         log.info("{} has logged in.", displayName);
-
         currentlyLoggedInAccount = displayName;
 
     }
 
     public void handleLogout() {
         log.info("{} has logged out", currentlyLoggedInAccount);
-
         currentlyLoggedInAccount = null;
     }
 
